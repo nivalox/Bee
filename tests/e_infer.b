@@ -1,0 +1,4 @@
+main() {
+    x = 5;
+    x = "now a string";
+}

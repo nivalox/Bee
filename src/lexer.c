@@ -60,6 +60,10 @@ void lex(const char *s) {
         if (!c) break;
         if (c == '\n') { line++; i++; continue; }
         if (isspace(c)) { i++; continue; }
+        if (c == '/' && s[i + 1] == '/') { /* modern single-line comment */
+            while (s[i] && s[i] != '\n') i++;
+            continue;
+        }
         if (c == '/' && s[i + 1] == '*') {
             i += 2;
             while (s[i] && !(s[i] == '*' && s[i + 1] == '/')) {
@@ -79,8 +83,35 @@ void lex(const char *s) {
             t.k = T_ID;
             t.s = dupn(s + i, (size_t)(j - i));
             i = j;
-        } else if (isdigit(c)) {
+        } else if (isdigit(c) || (c == '.' && isdigit((unsigned char)s[i + 1]))) {
             int j = i;
+            int hex = c == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X');
+            if (!hex) { /* 3.14  .5  2e3  1.5e-3 are floats; plain digits stay integers */
+                int k = i, isf = 0;
+                while (isdigit((unsigned char)s[k])) k++;
+                if (s[k] == '.' && isdigit((unsigned char)s[k + 1])) {
+                    isf = 1;
+                    k++;
+                    while (isdigit((unsigned char)s[k])) k++;
+                }
+                if ((s[k] == 'e' || s[k] == 'E') &&
+                    (isdigit((unsigned char)s[k + 1]) ||
+                     ((s[k + 1] == '+' || s[k + 1] == '-') && isdigit((unsigned char)s[k + 2])))) {
+                    isf = 1;
+                    k += 2;
+                    while (isdigit((unsigned char)s[k])) k++;
+                }
+                if (isf) {
+                    if (isalpha((unsigned char)s[k]) || s[k] == '_') die(line, "bad number '%s'", dupn(s + i, (size_t)(k - i + 1)));
+                    char *txt = dupn(s + i, (size_t)(k - i));
+                    t.k = T_FLT;
+                    t.d = strtod(txt, NULL);
+                    t.s = txt;
+                    i = k;
+                    addtok(t);
+                    continue;
+                }
+            }
             while (isalnum((unsigned char)s[j])) j++;
             char *txt = dupn(s + i, (size_t)(j - i)), *end;
             t.k = T_NUM;
@@ -106,11 +137,28 @@ void lex(const char *s) {
             t.len = (int)b.n;
         } else {
             char op[4] = {0};
-            if (c == '=' && !modern && s[i + 1] != '=') {
-                /* original B spells compound assignment "=+", "=-", "=<<" ... */
-                if (s[i + 1] == '<' && s[i + 2] == '<') { strcpy(op, "<<="); i += 3; }
+            if (c == '=' && !modern) {
+                /* Original B spells compound assignment "=+", "=-", "=<<" ... and has six
+                 * relational ones: "===", "=!=", "=<", "=<=", "=>", "=>=" (x =< y means
+                 * x = x < y). Those six keep their historical spelling as tokens. */
+                if (s[i + 1] == '=' && s[i + 2] == '=') { strcpy(op, "==="); i += 3; }
+                else if (s[i + 1] == '!' && s[i + 2] == '=') { strcpy(op, "=!="); i += 3; }
+                else if (s[i + 1] == '<' && s[i + 2] == '=') { strcpy(op, "=<="); i += 3; }
+                else if (s[i + 1] == '>' && s[i + 2] == '=') { strcpy(op, "=>="); i += 3; }
+                else if (s[i + 1] == '<' && s[i + 2] == '<') { strcpy(op, "<<="); i += 3; }
                 else if (s[i + 1] == '>' && s[i + 2] == '>') { strcpy(op, ">>="); i += 3; }
-                else if (s[i + 1] && strchr("+-*/%&|", s[i + 1])) { op[0] = s[i + 1]; op[1] = '='; i += 2; }
+                else if (s[i + 1] == '<') { strcpy(op, "=<"); i += 2; }
+                else if (s[i + 1] == '>') { strcpy(op, "=>"); i += 2; }
+                else if (s[i + 1] && s[i + 1] != '=' && strchr("+-*/%&|", s[i + 1])) {
+                    op[0] = s[i + 1];
+                    op[1] = '=';
+                    /* x=-1 is x =- 1 (x = x - 1) in B. Almost certainly not what a modern
+                     * programmer meant, but it is the historical meaning, so only warn. */
+                    int nx = (unsigned char)s[i + 2];
+                    if ((op[0] == '-' || op[0] == '+') && (isalnum(nx) || nx == '_' || nx == '('))
+                        warn(line, "'=%c' is the historical B operator (x =%c y means x = x %c y); write 'x = %c1' with a space to assign a signed number", op[0], op[0], op[0], op[0]);
+                    i += 2;
+                }
             }
             if (!op[0]) {
                 static const char *m3[] = {"<<=", ">>=", 0};
@@ -122,7 +170,10 @@ void lex(const char *s) {
                 for (int k = 0; m2[k] && !found; k++)
                     if (!strncmp(s + i, m2[k], 2)) { strcpy(op, m2[k]); i += 2; found = 1; }
                 if (!found) {
-                    if (!strchr("(){}[];,:?+-*/%&|<>!=", c)) die(line, "unexpected character '%c'", c);
+                    if (!strchr("(){}[];,:?+-*/%&|<>!=", c)) {
+                        if (c == '.') die(line, "unexpected '.': Bee has no structures or member access");
+                        die(line, "unexpected character '%c'", c);
+                    }
                     op[0] = (char)c;
                     i++;
                 }

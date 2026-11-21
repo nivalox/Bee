@@ -7,7 +7,9 @@ void stmt(Buf *o) {
 
     if (isop("{")) {
         pos++;
-        int save = nloc;
+        int save = nloc, old_scope = scope_start;
+        if (flat_body) flat_body = 0; /* a function body shares its scope with the parameters */
+        else scope_start = nloc;
         bput(o, "{\n");
         while (!isop("}")) {
             if (toks[pos].k == T_EOF) die(toks[pos].line, "missing '}'");
@@ -15,6 +17,7 @@ void stmt(Buf *o) {
         }
         pos++;
         nloc = save;
+        scope_start = old_scope;
         bput(o, "}\n");
         return;
     }
@@ -22,6 +25,13 @@ void stmt(Buf *o) {
 
     if (t->k == T_ID) {
         const char *s = t->s;
+        if (at_type_decl() >= 0) { var_decl(o, 0); return; } /* int x = 1;  char s[] = "...";  float f; */
+        if (!is_kw(s) && findloc(s) < 0 && !findg(s)) {
+            const char *u = unsupported(s);
+            if (u) die(line, "unsupported syntax: %s", u);
+            /* name = expr;  with no such name yet: an inferred declaration */
+            if (toks[pos + 1].k == T_OP && !strcmp(toks[pos + 1].s, "=")) { infer_stmt(o); return; }
+        }
         if (!strcmp(s, "auto")) {
             pos++;
             for (;;) {
@@ -48,7 +58,8 @@ void stmt(Buf *o) {
         if (!strcmp(s, "extrn")) {
             pos++;
             for (;;) {
-                if (toks[pos].k != T_ID) die(toks[pos].line, "expected a name after 'extrn'");
+                if (toks[pos].k != T_ID) die(toks[pos].line, "expected a name after 'extrn' but found %s", tokdesc(&toks[pos]));
+                note_extrn(toks[pos].s);
                 pos++;
                 if (!accept(",")) break;
             }
@@ -60,7 +71,7 @@ void stmt(Buf *o) {
             expect("(");
             Ex c = expr();
             expect(")");
-            bprintf(o, "if (%s) {\n", c.rv);
+            bprintf(o, "if (%s) {\n", cond_rv(c));
             stmt(o);
             bput(o, "}\n");
             if (isid("else")) {
@@ -76,7 +87,7 @@ void stmt(Buf *o) {
             expect("(");
             Ex c = expr();
             expect(")");
-            bprintf(o, "while (%s) {\n", c.rv);
+            bprintf(o, "while (%s) {\n", cond_rv(c));
             stmt(o);
             bput(o, "}\n");
             return;
@@ -86,6 +97,7 @@ void stmt(Buf *o) {
             expect("(");
             Ex c = expr();
             expect(")");
+            if (pass == 2 && (c.ty == TY_FLOAT || c.ty == TY_STR)) die(line, "switch needs an integer, not %s", tyname(c.ty));
             bprintf(o, "switch (%s) {\n", c.rv);
             stmt(o);
             bput(o, "}\n");
@@ -121,7 +133,12 @@ void stmt(Buf *o) {
         if (!strcmp(s, "return")) {
             pos++;
             char *v = fmt("0");
-            if (!isop(";")) v = expr().rv;
+            if (!isop(";")) {
+                Ex r = expr();
+                v = r.rv;
+                /* a function written with a return type is checked, and an int widens to float */
+                if (cur_ret_declared) v = convert(line, cur_ret, r, fmt("the return value of '%s'", cur_fn));
+            }
             expect(";");
             bprintf(o, "{ W r_ = %s; sp = fp; return r_; }\n", v);
             return;

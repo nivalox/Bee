@@ -1,7 +1,6 @@
 bee
 rt_inc.h
 *.bee.c
-examples/hello
-examples/fib
-examples/strings
 build/
+examples/*
+!examples/*.b

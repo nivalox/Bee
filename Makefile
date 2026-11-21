@@ -30,6 +30,7 @@ install: bee
 	cp bee $(PREFIX)/bin/bee
 
 clean:
-	rm -rf bee build examples/hello examples/fib examples/strings *.bee.c
+	rm -rf bee build *.bee.c
+	find examples -type f ! -name '*.b' -delete
 
 .PHONY: test install clean

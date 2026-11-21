@@ -29,6 +29,7 @@ const char *builtins[] = {"putchar", "getchar", "char", "lchar", "printf", "prin
 Loc locs[512];
 int nloc;
 int nslots; /* words in the current function's frame */
+int scope_start;
 
 int findloc(const char *n) {
     for (int i = nloc - 1; i >= 0; i--)
@@ -39,5 +40,29 @@ void addloc(const char *n, int off, int line) {
     if (nloc == (int)(sizeof locs / sizeof *locs)) die(line, "too many local names");
     locs[nloc].name = dupn(n, strlen(n));
     locs[nloc].off = off;
+    locs[nloc].ty = TY_WORD;
+    locs[nloc].arr = 0;
+    locs[nloc].line = line;
     nloc++;
+}
+
+/* "extrn name;" for a name that is never defined at top level: Bee gives it a zeroed global
+ * word instead of failing to link, so traditional-looking code can declare its own externals. */
+static char **ext;
+static int next_, capext;
+
+void note_extrn(const char *name) {
+    for (int i = 0; i < next_; i++)
+        if (!strcmp(ext[i], name)) return;
+    if (next_ == capext) {
+        capext = capext ? capext * 2 : 16;
+        ext = realloc(ext, (size_t)capext * sizeof *ext);
+        if (!ext) oom();
+    }
+    ext[next_++] = dupn(name, strlen(name));
+}
+
+void register_implicit(void) {
+    for (int i = 0; i < next_; i++)
+        if (!findg(ext[i])) addg(ext[i], K_VAR)->implicit = 1;
 }

@@ -1,0 +1,1 @@
+main() { char c = 'ab'; }

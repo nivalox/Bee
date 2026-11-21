@@ -54,6 +54,7 @@ int main(int argc, char **argv) {
     }
 
     for (pass = 1; pass <= 2; pass++) {
+        if (pass == 2) register_implicit(); /* extrn names with no definition become zeroed globals */
         memset(&defs, 0, sizeof defs);
         memset(&protos, 0, sizeof protos);
         memset(&funcs, 0, sizeof funcs);
@@ -62,6 +63,12 @@ int main(int argc, char **argv) {
         nstr = 0;
         pos = 0;
         while (toks[pos].k != T_EOF) toplevel();
+        if (pass == 2)
+            for (int i = 0; i < ngs; i++)
+                if (gsyms[i].implicit) {
+                    bprintf(&defs, "#define G_%s %s\n", gsyms[i].name, gend);
+                    gend = fmt("(G_%s + 1)", gsyms[i].name);
+                }
     }
 
     Sym *m = findg("main");

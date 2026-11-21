@@ -17,6 +17,15 @@ void die(int line, const char *f, ...) {
     exit(1);
 }
 
+void warn(int line, const char *f, ...) {
+    va_list ap;
+    fprintf(stderr, "%s:%d: warning: ", srcname, line);
+    va_start(ap, f);
+    vfprintf(stderr, f, ap);
+    va_end(ap);
+    fputc('\n', stderr);
+}
+
 static void bgrow(Buf *b, size_t extra) {
     if (b->n + extra + 1 > b->cap) {
         b->cap = (b->n + extra + 1) * 2;
