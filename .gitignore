@@ -4,3 +4,4 @@ rt_inc.h
 examples/hello
 examples/fib
 examples/strings
+build/
