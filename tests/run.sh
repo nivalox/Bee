@@ -32,6 +32,8 @@ warns() {
     else echo "FAIL $name (no warning)"; cat "$tmp/$name.msg"; fail=1; fi
 }
 
+# everything in one self-checking program (start here if something breaks)
+run all_features
 # traditional B
 run traditional; run histops; run stress
 # escapes, printf, strings, chars

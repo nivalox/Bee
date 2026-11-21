@@ -377,6 +377,7 @@ Ex expr(void) {
             if (!strcmp(op, aops[i])) compound = 1;
         if (!strcmp(op, "=") || compound) {
             int line = toks[pos].line;
+            if (!l.addr && l.fn) die(line, "cannot assign to '%s': it is a function, not a variable", l.fn);
             if (!l.addr) die(line, "lvalue required on the left of '%s'", op);
             pos++;
             Ex r = expr();

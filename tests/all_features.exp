@@ -1,0 +1,29 @@
+== traditional B ==
+== historical ops ==
+== control flow ==
+== functions ==
+== declarations ==
+== inference ==
+== compound ==
+== floats ==
+== strings ==
+== escapes ==
+== printf ==
+>42|   42|42   |00042
+-7 0
+100 ff
+abc
+bee|   bee|bee   |be
+1.500000 0.67    3.142|2.5     |
+1.234500e+03 0.25 100000
+100% sure
+   1  22 333
+cart has 3 items costing 9.50
+255 377 111 12345
+!
+xy
+no args
+== mixed syntax ==
+== comments ==
+211 checks, 211 passed, 0 failed
+ALL PASSED

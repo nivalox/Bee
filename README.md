@@ -274,8 +274,17 @@ operators, a modern `float`/`int` cast.
 
 ## Tests
 
-`make test` (or `tests/run.sh`) builds the examples and runs the whole suite. Each
-`tests/NAME.b` is one of:
+`make test` (or `tests/run.sh`) builds the examples and runs the whole suite.
+
+**`tests/all_features.b` is one self-checking program covering every feature** (traditional
+operators and historical `=op` forms, control flow, goto/switch, vectors, function values,
+typed and untyped functions, declarations, inference, compound assignment, floats, char arrays,
+every escape, printf, mixed syntax, comments). It prints a line per section, a `FAIL` line for
+any broken check, and a summary ending in `ALL PASSED`. Run it alone with:
+
+    ./bee -o /tmp/all tests/all_features.b && /tmp/all
+
+The rest of the suite narrows a failure down. Each `tests/NAME.b` is one of:
 
 - **`NAME.exp`**: compile, run, and the output must match exactly. Covers traditional B
   (`traditional`, `histops`, `stress`), escapes/printf/strings (`escapes`, `intfmt`, `width`,
